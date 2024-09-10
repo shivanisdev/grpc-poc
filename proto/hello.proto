@@ -8,6 +8,8 @@ service Greeter {
   rpc SayHello (HelloRequest) returns (HelloReply) {}
 
   rpc PrintAgeByYear (YearRequest) returns (AgeResponse) {}
+
+  rpc GreetsStream(HelloRequest) returns (stream HelloReply){}
 }
 
 // The request message containing the user's name.

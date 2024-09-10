@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -35,5 +37,23 @@ func main() {
 
 	r1, _ := client.PrintAgeByYear(ctx, &pb.YearRequest{Year: 1993})
 
-	log.Printf("Your Age is: %s", r1.GetAge())
+	log.Printf("Your Age is: %d", r1.GetAge())
+
+	stream, err := client.GreetsStream(context.Background(), &pb.HelloRequest{Name: name})
+	if err != nil {
+		log.Fatalf("Error while calling GreetManyTimes: %v", err)
+	}
+	for {
+		// Receive streamed messages
+		res, err := stream.Recv()
+		if err == io.EOF {
+			break // End of stream
+		}
+		if err != nil {
+			log.Fatalf("Error while receiving stream: %v", err)
+		}
+
+		// Print the response from the server
+		fmt.Printf("Response from server: %s\n", res.GetMessage())
+	}
 }

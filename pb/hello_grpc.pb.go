@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Greeter_SayHello_FullMethodName       = "/Greeter/SayHello"
 	Greeter_PrintAgeByYear_FullMethodName = "/Greeter/PrintAgeByYear"
+	Greeter_GreetsStream_FullMethodName   = "/Greeter/GreetsStream"
 )
 
 // GreeterClient is the client API for Greeter service.
@@ -32,6 +33,7 @@ type GreeterClient interface {
 	// Sends a greeting
 	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
 	PrintAgeByYear(ctx context.Context, in *YearRequest, opts ...grpc.CallOption) (*AgeResponse, error)
+	GreetsStream(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[HelloReply], error)
 }
 
 type greeterClient struct {
@@ -62,6 +64,25 @@ func (c *greeterClient) PrintAgeByYear(ctx context.Context, in *YearRequest, opt
 	return out, nil
 }
 
+func (c *greeterClient) GreetsStream(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[HelloReply], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Greeter_ServiceDesc.Streams[0], Greeter_GreetsStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[HelloRequest, HelloReply]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Greeter_GreetsStreamClient = grpc.ServerStreamingClient[HelloReply]
+
 // GreeterServer is the server API for Greeter service.
 // All implementations must embed UnimplementedGreeterServer
 // for forward compatibility.
@@ -71,6 +92,7 @@ type GreeterServer interface {
 	// Sends a greeting
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
 	PrintAgeByYear(context.Context, *YearRequest) (*AgeResponse, error)
+	GreetsStream(*HelloRequest, grpc.ServerStreamingServer[HelloReply]) error
 	mustEmbedUnimplementedGreeterServer()
 }
 
@@ -86,6 +108,9 @@ func (UnimplementedGreeterServer) SayHello(context.Context, *HelloRequest) (*Hel
 }
 func (UnimplementedGreeterServer) PrintAgeByYear(context.Context, *YearRequest) (*AgeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrintAgeByYear not implemented")
+}
+func (UnimplementedGreeterServer) GreetsStream(*HelloRequest, grpc.ServerStreamingServer[HelloReply]) error {
+	return status.Errorf(codes.Unimplemented, "method GreetsStream not implemented")
 }
 func (UnimplementedGreeterServer) mustEmbedUnimplementedGreeterServer() {}
 func (UnimplementedGreeterServer) testEmbeddedByValue()                 {}
@@ -144,6 +169,17 @@ func _Greeter_PrintAgeByYear_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Greeter_GreetsStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(HelloRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GreeterServer).GreetsStream(m, &grpc.GenericServerStream[HelloRequest, HelloReply]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Greeter_GreetsStreamServer = grpc.ServerStreamingServer[HelloReply]
+
 // Greeter_ServiceDesc is the grpc.ServiceDesc for Greeter service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -160,6 +196,12 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Greeter_PrintAgeByYear_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GreetsStream",
+			Handler:       _Greeter_GreetsStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "hello.proto",
 }

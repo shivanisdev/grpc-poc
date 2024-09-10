@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"example.com/grpc-poc/pb"
 	"google.golang.org/grpc"
@@ -21,7 +22,22 @@ func (s *Server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 }
 
 func (s *Server) PrintAgeByYear(ctx context.Context, r *pb.YearRequest) (*pb.AgeResponse, error) {
-	return &pb.AgeResponse{Age: 2024 - r.GetYear()}, nil
+	age := 2024 - r.GetYear()
+	return &pb.AgeResponse{Age: age}, nil
+}
+
+func (s *Server) GreetsStream(r *pb.HelloRequest, stream pb.Greeter_GreetsStreamServer) error {
+	name := r.GetName()
+	for i := 0; i < 5; i++ { // Simulate streaming 5 greetings
+		response := &pb.HelloReply{
+			Message: fmt.Sprintf("Hello %s, message number %d", name, i+1),
+		}
+		if err := stream.Send(response); err != nil {
+			return fmt.Errorf("errorfit: %v", err)
+		}
+		time.Sleep(1 * time.Second) // Simulate delay
+	}
+	return nil
 }
 
 func main() {
