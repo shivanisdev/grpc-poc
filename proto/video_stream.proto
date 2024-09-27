@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option go_package = ".;pb";
+
+service VideoStream {
+    rpc StreamVideo(VideoRequest) returns (stream VideoChunk);
+}
+  
+message VideoRequest {
+    string video_id = 1;
+}
+  
+message VideoChunk {
+    bytes chunk_data = 1;
+    int32 sequence_number = 2;
+}

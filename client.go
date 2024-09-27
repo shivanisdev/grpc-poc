@@ -56,4 +56,38 @@ func main() {
 		// Print the response from the server
 		fmt.Printf("Response from server: %s\n", res.GetMessage())
 	}
+
+	// create video streaming client
+
+	videoClient := pb.NewVideoStreamClient(conn)
+
+	req := &pb.VideoRequest{VideoId: "test"}
+
+	videoStream, err := videoClient.StreamVideo(context.Background(), req)
+
+	if err != nil {
+		log.Fatalf("error while calling StreamVideo: %v", err)
+	}
+
+	file, err := os.Create("videos/downloaded_sample.mp4")
+	if err != nil {
+		log.Fatalf("could not create file: %v", err)
+	}
+	defer file.Close()
+
+	for {
+		chunk, err := videoStream.Recv()
+		if err == io.EOF {
+			log.Println("File received successfully")
+			break
+		}
+		if err != nil {
+			log.Fatalf("error receiving chunk: %v", err)
+		}
+
+		_, err = file.Write(chunk.ChunkData)
+		if err != nil {
+			log.Fatalf("error writing to file: %v", err)
+		}
+	}
 }
